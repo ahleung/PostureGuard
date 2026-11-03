@@ -890,9 +890,30 @@ function renderDonate() {
   box.innerHTML = '';
   const d = appInfo?.donate || {};
 
+  // 赞赏码排在最前：扫码即付、不用注册，小额赞助的转化全看这一步少几次跳转。
+  if (d.qr) {
+    const img = document.createElement('img');
+    img.className = 'qr';
+    img.src = '/' + d.qr;
+    img.alt = t('about.donateQr');
+    box.appendChild(img);
+    const note = document.createElement('p');
+    note.className = 'set-note';
+    note.textContent = t('about.donateHint');
+    box.appendChild(note);
+  }
+
   const channels = [];
   if (d.afdian) channels.push({ url: d.afdian, label: t('about.donateAfdian') });
   if (d.sponsors) channels.push({ url: d.sponsors, label: t('about.donateSponsors') });
+
+  // 有码又有平台才解释「为什么还有第二个入口」，否则这行会显得没头没尾
+  if (channels.length && d.qr && d.afdian) {
+    const alt = document.createElement('p');
+    alt.className = 'set-note';
+    alt.textContent = t('about.donateAlt');
+    box.appendChild(alt);
+  }
 
   if (channels.length) {
     const row = document.createElement('div');
@@ -906,18 +927,6 @@ function renderDonate() {
       row.appendChild(btn);
     });
     box.appendChild(row);
-  }
-
-  if (d.qr) {
-    const img = document.createElement('img');
-    img.className = 'qr';
-    img.src = '/' + d.qr;
-    img.alt = t('about.donateQr');
-    box.appendChild(img);
-    const note = document.createElement('p');
-    note.className = 'set-note';
-    note.textContent = t('about.donateHint');
-    box.appendChild(note);
   }
 
   if (!channels.length && !d.qr) {

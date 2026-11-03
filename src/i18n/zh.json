@@ -183,13 +183,14 @@
     "privacy": "摄像头画面只在本机内存里处理，不录制、不上传、不落地。所有设置和标定结果都存在本机的配置文件里。",
     "license": "MIT 许可，可自由使用、修改和分发。",
     "donateTitle": "支持作者",
-    "donateText": "这个程序免费、开源、无广告。如果它让你少驼背了一点，可以请作者喝杯咖啡——金额随意。",
+    "donateText": "这个程序免费、开源、无广告。如果它让你少驼背了一点，可以扫下面的码请作者喝杯咖啡——不用注册，也不用登录。",
     "donateTerms": "这是一份无偿赠与：不构成购买，也不附带任何服务承诺或回报。",
-    "donateHint": "扫码后自行输入任意金额。",
-    "donateQr": "微信收款码",
+    "donateHint": "微信扫码即可，单笔最多 200 元。",
+    "donateQr": "微信赞赏码",
     "donateAfdian": "爱发电",
     "donateSponsors": "GitHub Sponsors",
-    "donateUnset": "作者还没有配置赞助方式。去 GitHub 点个 Star 也是支持。"
+    "donateUnset": "作者还没有配置赞助方式。去 GitHub 点个 Star 也是支持。",
+    "donateAlt": "想支持得更多，或者需要一张订单记录，可以走爱发电。"
   },
   "tray": {
     "tooltip": "坐姿护卫",

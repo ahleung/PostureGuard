@@ -2,7 +2,7 @@
   "repo": "https://github.com/ahleung/PostureGuard",
   "issues": "https://github.com/ahleung/PostureGuard/issues",
   "donate": {
-    "qrImage": "",
+    "qrImage": "assets/donate/wechat.png",
     "afdian": "https://afdian.com/a/ahleung",
     "sponsors": ""
   }

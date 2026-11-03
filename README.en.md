@@ -143,8 +143,8 @@ Delete the file to reset everything to defaults.
 ## Support the author
 
 This app is free, open source, and ad-free. If it saved your neck a little, you can buy the author a coffee —
-any amount. The entry is under "About" in the top right corner of the window; it opens an Afdian page where
-you can pay with WeChat Pay or Alipay.
+any amount. The entry is under "About" in the top right corner of the window: a WeChat tip code you can scan
+without signing up, plus an Afdian link if you would rather give more or need an order record.
 
 This is a voluntary gift: not a purchase, and it carries no service obligation or reward of any kind.
 The software itself is free under the MIT license and every feature is unlocked.

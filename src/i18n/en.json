@@ -183,13 +183,14 @@
     "privacy": "Camera frames are processed in memory on this machine only — never recorded, uploaded or written to disk. Settings and calibration live in a local config file.",
     "license": "MIT licensed. Free to use, modify and redistribute.",
     "donateTitle": "Support the author",
-    "donateText": "This app is free, open source and ad-free. If it saved your neck a little, you can buy the author a coffee — any amount.",
+    "donateText": "This app is free, open source and ad-free. If it saved your neck a little, scan the code below to buy the author a coffee — no sign-up needed.",
     "donateTerms": "This is a voluntary gift: not a purchase, and it carries no service obligation or reward of any kind.",
-    "donateHint": "Enter any amount after scanning.",
-    "donateQr": "WeChat Pay QR",
+    "donateHint": "Scan in WeChat. Up to 200 CNY per payment.",
+    "donateQr": "WeChat tip code",
     "donateAfdian": "Afdian",
     "donateSponsors": "GitHub Sponsors",
-    "donateUnset": "The author has not set up a sponsorship channel. A star on GitHub counts too."
+    "donateUnset": "The author has not set up a sponsorship channel. A star on GitHub counts too.",
+    "donateAlt": "Want to give more, or need an order record? Afdian is the other option."
   },
   "tray": {
     "tooltip": "PostureGuard",
