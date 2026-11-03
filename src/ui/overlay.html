@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'">
+<title>提醒</title>
+<style>
+  /* 卡片不透明度由主进程（设置项）通过 --card-alpha 下发。
+     默认 0.6：既能透出背后的桌面，深色底叠在浅色画面上也还压得住白字。 */
+  :root { --card-alpha: 0.6; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: transparent;
+    overflow: hidden;
+    font-family: "Microsoft YaHei UI", "Segoe UI", system-ui, sans-serif;
+    -webkit-user-select: none;
+    cursor: default;
+  }
+
+  .card {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin: 8px;
+    border-radius: 16px;
+    background: rgba(22, 22, 20, var(--card-alpha));
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    color: #FFFFFF;
+    text-align: center;
+    padding: 28px 40px;
+    animation: rise 180ms ease-out;
+    /* 半透明背景上，文字靠阴影拉开与背后画面的对比，否则桌面一亮就看不清 */
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75), 0 0 10px rgba(0, 0, 0, 0.55);
+  }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .rule {
+    width: 36px;
+    height: 3px;
+    border-radius: 2px;
+    background: #E24B4A;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  }
+
+  h2 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+  }
+
+  p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.7;
+    color: #FFFFFF;
+    max-width: 420px;
+  }
+
+  .meta {
+    margin-top: 6px;
+    font-size: 11px;
+    color: #E2E0D9;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="rule"></div>
+    <h2 id="title">坐直一点</h2>
+    <p id="body">把肩打开，头收回来。</p>
+    <div class="meta" id="meta"></div>
+  </div>
+<script>
+  window.api.onOverlayContent((d) => {
+    if (typeof d.opacity === 'number') {
+      document.documentElement.style.setProperty('--card-alpha', String(d.opacity));
+    }
+    document.getElementById('title').textContent = d.title || '';
+    document.getElementById('body').textContent = d.body || '';
+    document.getElementById('meta').textContent = d.meta || '';
+  });
+</script>
+</body>
+</html>

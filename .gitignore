@@ -1,0 +1,12 @@
+node_modules/
+dist/
+build/*.ico
+*.log
+.workbuddy/
+.DS_Store
+Thumbs.db
+
+# 收款码这类图片一旦提交就会永久留在 git 历史里，删了也能被 clone 出来。
+# 本地放着自己打包用即可，仓库里只留说明文档。
+assets/donate/*.png
+assets/donate/*.jpg

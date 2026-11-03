@@ -1,0 +1,76 @@
+{
+  "name": "postureguard",
+  "version": "0.3.7",
+  "description": "Camera-based posture watcher that nudges you when you slouch at your desk",
+  "main": "main.js",
+  "author": "ahleung",
+  "license": "MIT",
+  "homepage": "https://github.com/ahleung/PostureGuard",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ahleung/PostureGuard.git"
+  },
+  "keywords": [
+    "posture",
+    "ergonomics",
+    "webcam",
+    "mediapipe",
+    "electron",
+    "health"
+  ],
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis",
+    "dist:portable": "electron-builder --win portable"
+  },
+  "build": {
+    "appId": "com.liangshao.postureguard",
+    "productName": "PostureGuard",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!.workbuddy/**",
+      "!build/**",
+      "!start.cmd",
+      "!dist/**",
+      "!*.log",
+      "!package-lock.json"
+    ],
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerLanguages": [
+        "en_US",
+        "zh_CN"
+      ],
+      "include": "build/upgrade-check.nsh",
+      "artifactName": "PostureGuard-${version}-setup.${ext}"
+    },
+    "portable": {
+      "requestExecutionLevel": "user",
+      "artifactName": "PostureGuard-${version}-portable.${ext}"
+    },
+    "compression": "normal"
+  },
+  "dependencies": {
+    "@mediapipe/tasks-vision": "^1.2.0"
+  },
+  "devDependencies": {
+    "electron": "^45.1.0",
+    "electron-builder": "^26.18.0"
+  }
+}
