@@ -10,8 +10,15 @@ const ctx = canvas.getContext('2d');
 const TICK_MS = 250;          // 4 FPS：姿势是慢变量，不必占满帧率
 const CALIB_FRAMES = 20;      // 标定采集 5 秒
 const SMOOTH_N = 9;           // 中值滤波窗口，压制单帧关键点抖动
-const SIT_RESET_GAP = 90 * 1000;
 const BASE_KEYS = ['angle', 'tilt', 'shY', 'shW', 'yaw'];
+// 站起来时肩中点会明显高于标定基线（画面 y 轴向下，所以这个差是负值）。
+// 按标定时的肩宽归一后，"坐着"和"站着"差着好几倍，是"还在不在座位上"最直接的判据。
+// -0.3 ≈ 肩中点抬高 12cm 以上才算离座；坐着时的正常起伏不到 0.05。
+const SEAT_DROP_MIN = -0.3;
+// 连续这么久不在座位，就算"人真的走了"：姿势累计作废、久坐计时清零。
+// 2 秒是权衡出来的：短于它，单帧丢人（手挡一下、低头系鞋带）会把攒了半分钟的偏离一笔勾销；
+// 长于它，起身动一下再回来计时还接着原来那段走，用户会觉得"压根没重新开始"。
+const AWAY_MS = 2000;
 // 基线超过这个时间就作废：换过桌椅、调过显示器、身体状态变了，旧基线会悄悄失准
 const BASELINE_MAX_MS = 7 * 24 * 3600 * 1000;
 
@@ -37,8 +44,8 @@ let rawBuf = [];
 let tiltBuf = [];
 let shBuf = [];
 let yawBuf = [];
-let sitStart = 0;
-let sitLastSeen = 0;
+let sitMs = 0;          // 只累加"确实坐在座位上"的时长，离座就停表
+let awaySince = 0;      // 这一轮离座从什么时候开始，0 表示在座
 let standFired = false;
 let overlayOpen = false;
 let overlayTimer = null;
@@ -95,7 +102,7 @@ function applyLang(lang) {
     refreshSettingsText();
   }
   // 没在跑的时候读数不会自己重画，切语言后「0 分」这类带单位的旧值会留在界面上
-  if (!running) idlePaint();
+  if (!running) idlePaint(sitMs);
   tickClock();
 }
 
@@ -287,6 +294,10 @@ async function start() {
   tiltBuf = [];
   shBuf = [];
   yawBuf = [];
+  // 上一轮的坐时不能继承：跨时段停机、手动暂停之后，人早就起身过了
+  sitMs = 0;
+  awaySince = 0;
+  standFired = false;
   hideHint();
   setState('status.running', 'on');
   setToggleLabel();
@@ -365,16 +376,17 @@ function paint(m, dev, sitMs) {
   bar('b-sit', sitMs / sitLimit, sitMs >= sitLimit);
 }
 
-// 画面里没人时不保留上一次的陈旧读数，否则会被误读成"现在测的是这样"
-function idlePaint() {
+// 画面里没人时不保留上一次的陈旧读数，否则会被误读成"现在测的是这样"。
+// 久坐读数例外：短暂离座期间它停在原处，不该先跳成 0 再跳回来。
+function idlePaint(sit = 0) {
   $('v-angle').textContent = '--';
   $('v-tilt').textContent = '--';
   $('v-drop').textContent = '--';
-  $('v-sit').textContent = t('metric.sitValue', { n: 0 });
+  $('v-sit').textContent = t('metric.sitValue', { n: Math.floor(sit / 60000) });
   bar('b-angle', 0, false);
   bar('b-tilt', 0, false);
   bar('b-drop', 0, false);
-  bar('b-sit', 0, false);
+  bar('b-sit', sit / sitLimit, false);
 }
 
 // 盖在画面上的提示由当前状态驱动：待标定 / 倒计时 / 没人 / 完成即收起。
@@ -473,30 +485,27 @@ function loop() {
   const lm = res.landmarks?.[0];
 
   if (!trusted(lm)) {
-    draw(null);
-    setState('status.noPerson', 'warn');
-    closeOverlay();
-    // 标定中途人走开就作废，否则缓冲区会混进两次落座的姿态
-    if (calibBuf) {
-      calibBuf = null;
-      log(t('log.calibInterrupted'));
-    }
-    sitStart = 0;
-    rawBuf = [];
-    tiltBuf = [];
-    shBuf = [];
-    yawBuf = [];
-    idlePaint();
-    syncHint(false);
+    leaveSeat(now, 'status.noPerson');
     return;
   }
+
+  // 人在画面里 ≠ 坐在座位上：站起来时肩中点会明显高于标定基线。
+  // 这里刻意用**当前帧**的肩中点、不用中值滤波后的值——滤波窗口 9 帧要 1 秒多才跟上，
+  // 起身 5 秒会被吃掉 1 秒多，久坐计时就总也够不到清零门槛（真机实测卡在这）。
+  // 单帧噪声交给 leaveSeat 里那 2 秒的防抖吸收。
+  const sf = shoulderFrame(lm, aspect);
+  const dropNow = judge.base ? (sf.y - judge.base.shY) / Math.max(judge.base.shW, 0.1) : 0;
+  if (judge.base && dropNow < SEAT_DROP_MIN) {
+    leaveSeat(now, 'status.leftSeat');
+    return;
+  }
+  awaySince = 0;
 
   const raw = neckAngle(lm, aspect);
   rawBuf.push(raw);
   if (rawBuf.length > SMOOTH_N) rawBuf.shift();
   tiltBuf.push(shoulderTilt(lm, aspect));
   if (tiltBuf.length > SMOOTH_N) tiltBuf.shift();
-  const sf = shoulderFrame(lm, aspect);
   shBuf.push(sf.y);
   if (shBuf.length > SMOOTH_N) shBuf.shift();
   yawBuf.push(headYaw(lm));
@@ -521,7 +530,7 @@ function loop() {
   }
 
   const r = judge.update({ angle, tilt, shY, yaw }, dt, now);
-  const sitMs = updateSit(now);
+  updateSit(dt);
   draw(lm, r.bad);
   paint({ angle, tilt, shY }, r.dev, sitMs);
 
@@ -548,15 +557,12 @@ function loop() {
   syncHint(true);
 }
 
-// 久坐计时：连续检测到人，中途离开超过 90 秒才重置
-function updateSit(now) {
-  if (!sitStart || now - sitLastSeen > SIT_RESET_GAP) {
-    sitStart = now;
-    standFired = false;
-  }
-  sitLastSeen = now;
-  const elapsed = now - sitStart;
-  if (!standFired && elapsed > sitLimit) {
+// 久坐计时：只累加"确实坐在座位上"的时长。起身就停表，离开满 AWAY_MS 清零重来。
+// 旧版拿 sitStart 的差值当已坐时长，人一走开表就冻在旧值上、回来接着往下走，
+// 看起来就是"离开座位了计时没停"；而只要还在画面里（哪怕已经站起来），它压根停不下来。
+function updateSit(dt) {
+  sitMs += dt;
+  if (!standFired && sitMs > sitLimit) {
     standFired = true;
     const minutes = Math.round(sitLimit / 60000);
     openOverlay({
@@ -566,7 +572,38 @@ function updateSit(now) {
     }, 20000);
     log(t('log.sitRemind', { n: minutes }));
   }
-  return elapsed;
+}
+
+// 离座（人走出画面，或人还在画面里但站起来了）时的统一收尾。
+function leaveSeat(now, statusKey) {
+  draw(null);
+  setState(statusKey, 'warn');
+  // 卡片立刻收起：人都不在座位上了，那张卡片留着只会被当成"还在判我"
+  closeOverlay();
+  // 标定中途走开就作废，否则缓冲区会混进两次落座的姿态
+  if (calibBuf) {
+    calibBuf = null;
+    log(t('log.calibInterrupted'));
+  }
+  rawBuf = [];
+  tiltBuf = [];
+  shBuf = [];
+  yawBuf = [];
+  handleAway(now);
+  idlePaint(sitMs);
+  syncHint(false);
+}
+
+// 连续不在座位满 AWAY_MS 才收账：姿势累计作废（不作废的话，人回来坐下几秒就接着弹上次的提醒）、
+// 久坐计时清零（清零时写一行日志，否则"到底有没有重新开始"只能靠猜）。
+// 卡片本身不在这里收——leaveSeat 一发现人不在座位上就收掉了。
+function handleAway(now) {
+  if (!awaySince) awaySince = now;
+  if (now - awaySince < AWAY_MS) return;
+  judge.clearVerdict();
+  if (sitMs) log(t('log.sitReset'));
+  sitMs = 0;
+  standFired = false;
 }
 
 // 开会/共享屏幕时一键静默；手动暂停后不会被时段自动启动顶掉
@@ -957,7 +994,6 @@ $('about-close').addEventListener('click', closeAbout);
 $('about').addEventListener('click', (e) => { if (e.target.id === 'about') closeAbout(); });
 $('link-repo').addEventListener('click', () => { if (appInfo?.repo) window.api.openExternal(appInfo.repo); });
 $('link-issue').addEventListener('click', () => { if (appInfo?.issues) window.api.openExternal(appInfo.issues); });
-$('set-about').addEventListener('click', () => openAbout());
 $('set-donate').addEventListener('click', () => openAbout(true));
 
 document.addEventListener('keydown', (e) => {

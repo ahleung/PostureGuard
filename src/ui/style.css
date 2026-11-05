@@ -253,6 +253,15 @@ footer {
   align-items: start;
 }
 
+/* 两列各自独立堆叠。之前是整个面板按"行"排，一行里最高的卡片决定行高，
+   矮的那张下面就会拖出一段空白——左边「监控时段」和右边「摄像头机位」都被撑过。 */
+.set-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
 .set-group {
   padding: 12px 14px;
   border: 1px solid #E3E1DA;

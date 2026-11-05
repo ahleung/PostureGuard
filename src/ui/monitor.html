@@ -81,98 +81,101 @@
   </div>
 
   <div class="set-body">
-    <section class="set-group">
-      <h3 data-i18n="set.language">界面语言</h3>
-      <select id="s-language">
-        <option value="zh">中文</option>
-        <option value="en">English</option>
-      </select>
-      <p class="set-note" data-i18n="set.languageNote">切换后立即生效，并记住你的选择。</p>
-    </section>
+    <div class="set-col">
+      <section class="set-group">
+        <h3 data-i18n="set.language">界面语言</h3>
+        <select id="s-language">
+          <option value="zh">中文</option>
+          <option value="en">English</option>
+        </select>
+        <p class="set-note" data-i18n="set.languageNote">切换后立即生效，并记住你的选择。</p>
+      </section>
 
-    <section class="set-group">
-      <h3 data-i18n="set.startup">启动</h3>
-      <label class="row"><input type="checkbox" id="s-autoLaunch"><span data-i18n="set.autoLaunch">开机自动启动</span></label>
-      <label class="row"><input type="checkbox" id="s-recalib"><span data-i18n="set.recalib">每次启动重新标定坐姿</span></label>
-      <p class="set-note" id="baseline-note">—</p>
-    </section>
+      <section class="set-group">
+        <h3 data-i18n="set.schedule">监控时段</h3>
+        <label class="row"><input type="checkbox" id="s-weekends"><span data-i18n="set.weekends">周末也监控</span></label>
+        <div class="row time-row">
+          <span class="lbl" data-i18n="set.seg1">时段一</span>
+          <input type="time" id="s-seg0-from"><span class="dash" data-i18n="set.to">至</span><input type="time" id="s-seg0-to">
+        </div>
+        <div class="row time-row">
+          <span class="lbl" data-i18n="set.seg2">时段二</span>
+          <input type="time" id="s-seg1-from"><span class="dash" data-i18n="set.to">至</span><input type="time" id="s-seg1-to">
+        </div>
+        <p class="set-note" data-i18n="set.scheduleNote">时段两端都为 00:00 表示不启用该时段。时段外摄像头自动关闭。</p>
+      </section>
 
-    <section class="set-group">
-      <h3 data-i18n="set.schedule">监控时段</h3>
-      <label class="row"><input type="checkbox" id="s-weekends"><span data-i18n="set.weekends">周末也监控</span></label>
-      <div class="row time-row">
-        <span class="lbl" data-i18n="set.seg1">时段一</span>
-        <input type="time" id="s-seg0-from"><span class="dash" data-i18n="set.to">至</span><input type="time" id="s-seg0-to">
-      </div>
-      <div class="row time-row">
-        <span class="lbl" data-i18n="set.seg2">时段二</span>
-        <input type="time" id="s-seg1-from"><span class="dash" data-i18n="set.to">至</span><input type="time" id="s-seg1-to">
-      </div>
-      <p class="set-note" data-i18n="set.scheduleNote">时段两端都为 00:00 表示不启用该时段。时段外摄像头自动关闭。</p>
-    </section>
+      <section class="set-group">
+        <h3 data-i18n="set.display">提醒显示</h3>
+        <select id="s-display"></select>
+        <div class="row" style="margin-top:8px">
+          <button type="button" id="set-preview" class="ghost small" data-i18n="btn.tryDisplay">在哪块屏试一下</button>
+        </div>
+        <p class="set-note" id="display-note" data-i18n="set.displayNote">坐姿不良时，提醒卡片出现在所选屏幕的正中。这块屏不在了会自动退回最大的一块。</p>
+        <div class="row slider-row">
+          <span class="lbl" data-i18n="set.opacity">卡片不透明</span>
+          <input type="range" id="s-opacity" min="40" max="90" step="5">
+          <output id="s-opacity-val">60%</output>
+        </div>
+        <p class="set-note" data-i18n="set.opacityNote">调低能看清背后的桌面内容。过低时文字会和背景混在一起，建议不低于 40%。</p>
+        <p class="set-note" id="hotkey-note"></p>
+      </section>
 
-    <section class="set-group">
-      <h3><span data-i18n="set.threshold">判定阈值</span><span class="badge" id="preset-current"></span></h3>
-      <div class="row seg-row">
-        <span class="lbl" data-i18n="set.preset">一键预设</span>
-        <button type="button" class="seg" data-sens="loose" data-i18n="set.loose">宽松</button>
-        <button type="button" class="seg" data-sens="normal" data-i18n="set.normal">标准</button>
-        <button type="button" class="seg" data-sens="strict" data-i18n="set.strict">严格</button>
-      </div>
-      <div class="grid2">
-        <label><span data-i18n="set.dAngle">头颈前伸角</span><input type="number" id="s-dAngle" step="1" min="2" max="40"><em data-i18n="set.unitDeg">度</em></label>
-        <label><span data-i18n="set.dTilt">肩线倾斜</span><input type="number" id="s-dTilt" step="1" min="1" max="30"><em data-i18n="set.unitDeg">度</em></label>
-        <label><span data-i18n="set.dDrop">身体下沉</span><input type="number" id="s-dDrop" step="1" min="1" max="40"><em data-i18n="set.unitDrop">% 肩宽</em></label>
-        <label><span data-i18n="set.dYaw">转头容差</span><input type="number" id="s-dYaw" step="0.01" min="0.05" max="0.5"><em data-i18n="set.unitYaw">肩宽倍数</em></label>
-        <label><span data-i18n="set.holdMs">持续时长</span><input type="number" id="s-holdMs" step="0.5" min="1" max="30"><em data-i18n="set.unitSec">秒</em></label>
-        <label><span data-i18n="set.cooldownMs">提醒冷却</span><input type="number" id="s-cooldownMs" step="5" min="5" max="600"><em data-i18n="set.unitSec">秒</em></label>
-      </div>
-      <p class="set-note" data-i18n="set.thresholdNote">数值越大越宽松。拿不准就先只调「头颈前伸角」这一项。</p>
-      <p class="set-note" data-i18n="set.presetNote"></p>
-    </section>
+      <section class="set-group">
+        <h3 data-i18n="set.sit">久坐提醒</h3>
+        <label class="row"><input type="checkbox" id="s-sitEnabled"><span data-i18n="set.sitEnabled">开启久坐提醒</span></label>
+        <div class="row time-row">
+          <span class="lbl" data-i18n="set.sitMinutes">连续坐满</span>
+          <input type="number" id="s-sitMinutes" step="5" min="5" max="180"><span data-i18n="set.unitMin">分钟</span>
+        </div>
+      </section>
+    </div>
 
-    <section class="set-group">
-      <h3 data-i18n="set.display">提醒显示</h3>
-      <select id="s-display"></select>
-      <div class="row" style="margin-top:8px">
-        <button type="button" id="set-preview" class="ghost small" data-i18n="btn.tryDisplay">在哪块屏试一下</button>
-      </div>
-      <p class="set-note" id="display-note" data-i18n="set.displayNote">坐姿不良时，提醒卡片出现在所选屏幕的正中。这块屏不在了会自动退回最大的一块。</p>
-      <div class="row slider-row">
-        <span class="lbl" data-i18n="set.opacity">卡片不透明</span>
-        <input type="range" id="s-opacity" min="40" max="90" step="5">
-        <output id="s-opacity-val">60%</output>
-      </div>
-      <p class="set-note" data-i18n="set.opacityNote">调低能看清背后的桌面内容。过低时文字会和背景混在一起，建议不低于 40%。</p>
-      <p class="set-note" id="hotkey-note"></p>
-    </section>
+    <div class="set-col">
+      <section class="set-group">
+        <h3 data-i18n="set.startup">启动</h3>
+        <label class="row"><input type="checkbox" id="s-autoLaunch"><span data-i18n="set.autoLaunch">开机自动启动</span></label>
+        <label class="row"><input type="checkbox" id="s-recalib"><span data-i18n="set.recalib">每次启动重新标定坐姿</span></label>
+        <p class="set-note" id="baseline-note">—</p>
+      </section>
 
-    <section class="set-group">
-      <h3 data-i18n="set.camera">摄像头机位</h3>
-      <select id="s-camera">
-        <option value="front" data-i18n="set.cameraFront">正前方</option>
-        <option value="left45" data-i18n="set.cameraLeft45">左前方 45°</option>
-        <option value="right45" data-i18n="set.cameraRight45">右前方 45°</option>
-      </select>
-      <p class="set-note" id="camera-note" data-i18n="set.cameraNote">机位决定四项推荐阈值。切换机位会重置阈值并作废基线。</p>
-    </section>
+      <section class="set-group">
+        <h3><span data-i18n="set.threshold">判定阈值</span><span class="badge" id="preset-current"></span></h3>
+        <div class="row seg-row">
+          <span class="lbl" data-i18n="set.preset">一键预设</span>
+          <button type="button" class="seg" data-sens="loose" data-i18n="set.loose">宽松</button>
+          <button type="button" class="seg" data-sens="normal" data-i18n="set.normal">标准</button>
+          <button type="button" class="seg" data-sens="strict" data-i18n="set.strict">严格</button>
+        </div>
+        <div class="grid2">
+          <label><span data-i18n="set.dAngle">头颈前伸角</span><input type="number" id="s-dAngle" step="1" min="2" max="40"><em data-i18n="set.unitDeg">度</em></label>
+          <label><span data-i18n="set.dTilt">肩线倾斜</span><input type="number" id="s-dTilt" step="1" min="1" max="30"><em data-i18n="set.unitDeg">度</em></label>
+          <label><span data-i18n="set.dDrop">身体下沉</span><input type="number" id="s-dDrop" step="1" min="1" max="40"><em data-i18n="set.unitDrop">% 肩宽</em></label>
+          <label><span data-i18n="set.dYaw">转头容差</span><input type="number" id="s-dYaw" step="0.01" min="0.05" max="0.5"><em data-i18n="set.unitYaw">肩宽倍数</em></label>
+          <label><span data-i18n="set.holdMs">持续时长</span><input type="number" id="s-holdMs" step="0.5" min="1" max="30"><em data-i18n="set.unitSec">秒</em></label>
+          <label><span data-i18n="set.cooldownMs">提醒冷却</span><input type="number" id="s-cooldownMs" step="5" min="5" max="600"><em data-i18n="set.unitSec">秒</em></label>
+        </div>
+        <p class="set-note" data-i18n="set.thresholdNote">数值越大越宽松。拿不准就先只调「头颈前伸角」这一项。</p>
+        <p class="set-note" data-i18n="set.presetNote"></p>
+      </section>
 
-    <section class="set-group">
-      <h3 data-i18n="set.sit">久坐提醒</h3>
-      <label class="row"><input type="checkbox" id="s-sitEnabled"><span data-i18n="set.sitEnabled">开启久坐提醒</span></label>
-      <div class="row time-row">
-        <span class="lbl" data-i18n="set.sitMinutes">连续坐满</span>
-        <input type="number" id="s-sitMinutes" step="5" min="5" max="180"><span data-i18n="set.unitMin">分钟</span>
-      </div>
-    </section>
+      <section class="set-group">
+        <h3 data-i18n="set.camera">摄像头机位</h3>
+        <select id="s-camera">
+          <option value="front" data-i18n="set.cameraFront">正前方</option>
+          <option value="left45" data-i18n="set.cameraLeft45">左前方 45°</option>
+          <option value="right45" data-i18n="set.cameraRight45">右前方 45°</option>
+        </select>
+        <p class="set-note" id="camera-note" data-i18n="set.cameraNote">机位决定四项推荐阈值。切换机位会重置阈值并作废基线。</p>
+      </section>
 
-    <section class="set-group">
-      <h3 data-i18n="set.about">关于与支持</h3>
-      <div class="row">
-        <button type="button" id="set-about" class="ghost small" data-i18n="btn.about">关于</button>
-        <button type="button" id="set-donate" class="ghost small" data-i18n="btn.donate">支持作者</button>
-      </div>
-    </section>
+      <section class="set-group">
+        <h3 data-i18n="set.support">支持作者</h3>
+        <div class="row">
+          <button type="button" id="set-donate" class="ghost small" data-i18n="btn.donate">自愿赞助</button>
+        </div>
+      </section>
+    </div>
   </div>
 </div>
 

@@ -11,6 +11,7 @@
     "running": "Running",
     "paused": "Paused",
     "noPerson": "No one in frame",
+    "leftSeat": "You left your seat",
     "camLost": "Detection stopped",
     "startFail": "Failed to start",
     "needCalib": "Needs calibration",
@@ -50,7 +51,7 @@
     "tryDisplay": "Preview on that screen",
     "openRepo": "GitHub repo",
     "reportIssue": "Report an issue",
-    "donate": "Support the author",
+    "donate": "Voluntary support",
     "close": "Close"
   },
   "hint": {
@@ -114,6 +115,7 @@
     "remind": "Nudge: {why}",
     "recovered": "Posture is back",
     "sitRemind": "Nudge: sitting for {n} min",
+    "sitReset": "You left your seat — sitting timer reset",
     "manualPause": "Paused manually, press {key} to resume",
     "needStart": "Start detection first",
     "settingsSaved": "Settings saved",
@@ -175,7 +177,7 @@
     "languageNote": "Applies immediately and is remembered.",
     "hotkeyNote": "Global shortcut {key}: pause / resume detection.",
     "unknown": "unknown",
-    "about": "About & support"
+    "support": "Support the author"
   },
   "about": {
     "title": "About",

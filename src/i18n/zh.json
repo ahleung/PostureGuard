@@ -11,6 +11,7 @@
     "running": "运行中",
     "paused": "已暂停",
     "noPerson": "画面里没有人",
+    "leftSeat": "你离开座位了",
     "camLost": "检测中断",
     "startFail": "启动失败",
     "needCalib": "待标定",
@@ -50,7 +51,7 @@
     "tryDisplay": "在哪块屏试一下",
     "openRepo": "GitHub 仓库",
     "reportIssue": "反馈问题",
-    "donate": "支持作者",
+    "donate": "自愿赞助",
     "close": "关闭"
   },
   "hint": {
@@ -114,6 +115,7 @@
     "remind": "提醒：{why}",
     "recovered": "姿势已恢复",
     "sitRemind": "提醒：久坐 {n} 分钟",
+    "sitReset": "已离开座位，久坐计时清零",
     "manualPause": "已手动暂停，再按 {key} 恢复",
     "needStart": "请先启动检测",
     "settingsSaved": "设置已保存",
@@ -175,7 +177,7 @@
     "languageNote": "切换后立即生效，并记住你的选择。",
     "hotkeyNote": "全局快捷键 {key}：暂停 / 恢复检测。",
     "unknown": "未知",
-    "about": "关于与支持"
+    "support": "支持作者"
   },
   "about": {
     "title": "关于",
