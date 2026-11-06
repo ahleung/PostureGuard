@@ -15,10 +15,17 @@ const BASE_KEYS = ['angle', 'tilt', 'shY', 'shW', 'yaw'];
 // 按标定时的肩宽归一后，"坐着"和"站着"差着好几倍，是"还在不在座位上"最直接的判据。
 // -0.3 ≈ 肩中点抬高 12cm 以上才算离座；坐着时的正常起伏不到 0.05。
 const SEAT_DROP_MIN = -0.3;
-// 连续这么久不在座位，就算"人真的走了"：姿势累计作废、久坐计时清零。
-// 2 秒是权衡出来的：短于它，单帧丢人（手挡一下、低头系鞋带）会把攒了半分钟的偏离一笔勾销；
-// 长于它，起身动一下再回来计时还接着原来那段走，用户会觉得"压根没重新开始"。
+// 连续这么久不在座位，就不再判姿势：作废 badMs、收起卡片。2 秒是"人还在不在"的确认窗口。
 const AWAY_MS = 2000;
+// 离开这么久才算一次真正的休息，久坐计时才清零——和上面那个不是一回事。
+// 这个值不能小：45 分钟的"连续"里只要出现一次 2 秒的检测中断（够东西、低头、转身），
+// 计数就被打回 0，提醒永远攒不满。0.3.9 把两者都设成 2 秒，真机表现就是"45 分钟从没提醒过"。
+// 1 分钟的分界：起身接杯水、走到窗边站一会儿都够 1 分钟，算真休息；坐着伸个懒腰不算。
+const SIT_BREAK_MS = 60 * 1000;
+// 姿势卡片正常靠"坐正 3 秒"收起，但那条路依赖 judge.shown 一直为真。
+// 判定态被外部清掉（离座确认、改机位作废基线、重新标定）后就再也没人产出 release，
+// 卡片会永久停在屏幕上，只能退出程序才消失。给个上限兜底：再怎么样也不会常驻挡屏。
+const POSTURE_MAX_MS = 30 * 1000;
 // 基线超过这个时间就作废：换过桌椅、调过显示器、身体状态变了，旧基线会悄悄失准
 const BASELINE_MAX_MS = 7 * 24 * 3600 * 1000;
 
@@ -48,6 +55,7 @@ let sitMs = 0;          // 只累加"确实坐在座位上"的时长，离座就
 let awaySince = 0;      // 这一轮离座从什么时候开始，0 表示在座
 let standFired = false;
 let overlayOpen = false;
+let overlayKind = null;    // 'posture' | 'sit' | null：屏幕上这张卡片是哪一类
 let overlayTimer = null;
 let lastVideoTime = -1;
 let stallSince = 0;
@@ -123,25 +131,29 @@ function refreshSettingsText() {
 
 // ---------------- 提醒卡片 ----------------
 
-// 坐姿提醒靠"恢复坐正"收起；久坐提醒没有恢复条件，必须自带超时。
-function openOverlay(payload, autoHideMs) {
+// 两类卡片都自带超时：姿势卡片正常靠"坐正 3 秒"提前收，久坐卡片 20 秒后自动收。
+// 不能只给久坐卡片设定时器——第二次 openOverlay 会 clearTimeout 掉前一个，
+// 叠加出来的姿势卡片就既没超时、又不一定等得到 release（真机"弹窗不消失"）。
+function openOverlay(payload, kind, autoHideMs) {
   window.api.showOverlay(payload);
+  overlayKind = kind;
   overlayOpen = true;
   clearTimeout(overlayTimer);
-  overlayTimer = autoHideMs ? setTimeout(closeOverlay, autoHideMs) : null;
+  overlayTimer = setTimeout(closeOverlay, autoHideMs);
 }
 
 function closeOverlay() {
-  const wasOpen = overlayOpen;
-  if (wasOpen) {
+  if (overlayOpen) {
     window.api.hideOverlay();
     overlayOpen = false;
   }
+  overlayKind = null;
   clearTimeout(overlayTimer);
   overlayTimer = null;
-  // 卡片真被收起了，判定器的"正在提醒"也必须跟着结束。
-  // 只在确实收过卡片时清：画面里没人时这里每帧都会走到，无条件清会把 badMs 的累计一起打掉。
-  if (wasOpen) judge.clearVerdict();
+  // 卡片收了，判定器的"正在提醒"也必须结束：shown 挂着 true 时 update() 不再产生
+  // trigger，表现就是"之后再也不弹窗"。按 judge.shown 判断而非 overlayOpen——
+  // 画面里没人时这里每帧都会走到，无条件清 badMs 会把正在累积的判定打断。
+  if (judge.shown) judge.clearVerdict();
 }
 
 // ---------------- 顶部状态 ----------------
@@ -546,18 +558,22 @@ function loop() {
       title: t('overlay.postureTitle'),
       body: t('overlay.postureBody', { why, tips }),
       meta: t('overlay.meta'),
-    });
+    }, 'posture', POSTURE_MAX_MS);
     log(t('log.remind', { why }));
   }
   if (r.release) {
     closeOverlay();
     log(t('log.recovered'));
+  } else if (overlayKind === 'posture' && !judge.shown) {
+    // 判定态被外部清掉（离座确认、改机位作废基线、重新标定）时，
+    // update() 再也不会产出 release，姿势卡片就没人收了。这里强制对齐状态和屏幕。
+    closeOverlay();
   }
   setState(...describe(now, r));
   syncHint(true);
 }
 
-// 久坐计时：只累加"确实坐在座位上"的时长。起身就停表，离开满 AWAY_MS 清零重来。
+// 久坐计时：只累加"确实坐在座位上"的时长。起身就停表；离开满 SIT_BREAK_MS 才算休息、进度清零。
 // 旧版拿 sitStart 的差值当已坐时长，人一走开表就冻在旧值上、回来接着往下走，
 // 看起来就是"离开座位了计时没停"；而只要还在画面里（哪怕已经站起来），它压根停不下来。
 function updateSit(dt) {
@@ -569,7 +585,7 @@ function updateSit(dt) {
       title: t('overlay.sitTitle'),
       body: t('overlay.sitBody', { n: minutes }),
       meta: t('overlay.metaSit', { s: 20 }),
-    }, 20000);
+    }, 'sit', 20000);
     log(t('log.sitRemind', { n: minutes }));
   }
 }
@@ -594,16 +610,18 @@ function leaveSeat(now, statusKey) {
   syncHint(false);
 }
 
-// 连续不在座位满 AWAY_MS 才收账：姿势累计作废（不作废的话，人回来坐下几秒就接着弹上次的提醒）、
-// 久坐计时清零（清零时写一行日志，否则"到底有没有重新开始"只能靠猜）。
+// 连续不在座位满 AWAY_MS 才收账：作废姿势累计（不作废的话，人回来坐下几秒就接着弹上次的提醒）。
+// 久坐计时另算：离座期间它本来就不累加（updateSit 只在在座帧调用），这里只决定"进度要不要作废"。
 // 卡片本身不在这里收——leaveSeat 一发现人不在座位上就收掉了。
 function handleAway(now) {
   if (!awaySince) awaySince = now;
-  if (now - awaySince < AWAY_MS) return;
-  judge.clearVerdict();
-  if (sitMs) log(t('log.sitReset'));
-  sitMs = 0;
-  standFired = false;
+  const away = now - awaySince;
+  if (away >= AWAY_MS) judge.clearVerdict();
+  if (away >= SIT_BREAK_MS) {
+    if (sitMs) log(t('log.sitReset'));
+    sitMs = 0;
+    standFired = false;
+  }
 }
 
 // 开会/共享屏幕时一键静默；手动暂停后不会被时段自动启动顶掉

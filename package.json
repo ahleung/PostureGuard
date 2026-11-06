@@ -1,6 +1,6 @@
 {
   "name": "postureguard",
-  "version": "0.3.9",
+  "version": "0.3.10",
   "description": "Camera-based posture watcher that nudges you when you slouch at your desk",
   "main": "main.js",
   "author": "ahleung",
