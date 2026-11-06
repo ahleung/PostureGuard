@@ -274,12 +274,54 @@ function placeOverlay() {
 // 视频全屏、游戏）一抢焦点就把它压到下面——只在创建时设一次 AlwaysOnTop 根本不够。
 // 每次显示都重新声明一遍，才能把它顶回该层最前面。
 function raiseOverlay() {
-  if (!overlayWin || overlayWin.isDestroyed()) return;
+  // moveTop() 在 Windows 上会把**已隐藏**的窗口重新显示出来（实测 isVisible 从 false 变 true）。
+  // 不挡这一下的话，overlay:show 里延迟 150/400ms 的那两次抬高会在卡片被收起后把它复活：
+  // 渲染进程以为已经收过、不会再发 overlay:hide，卡片就永久停在屏幕上，只能重启。
+  if (!overlayWin || overlayWin.isDestroyed() || !overlayWin.isVisible()) return;
   overlayWin.setAlwaysOnTop(true, 'screen-saver');
   overlayWin.moveTop();
 }
 
 let overlayKeeper = null;
+let overlayTimers = [];
+let overlayShownAt = 0;
+
+// 显示期间挂的异步任务全部登记，hide 时一次性取消。
+// 连"预览的 1.8 秒收起"和"主进程兜底"一起管：真卡片弹出时别被预览的定时器误收，
+// 卡片收起时别让任何残留回调再把窗口拉回来。
+function scheduleOverlay(fn, ms) {
+  overlayTimers.push(setTimeout(fn, ms));
+}
+
+function clearOverlayTimers() {
+  for (const id of overlayTimers) clearTimeout(id);
+  overlayTimers = [];
+}
+
+// 卡片显隐是唯一"用户看得见、事后却查不到"的事件。界面里那 4 行日志退出就没了，
+// 落盘一行才能回答"到底弹没弹、什么时候收的"。
+function logOverlay(action, detail = '') {
+  try {
+    const file = path.join(app.getPath('userData'), 'overlay-events.log');
+    if (fs.existsSync(file) && fs.statSync(file).size > 200 * 1024) {
+      fs.writeFileSync(file, fs.readFileSync(file, 'utf8').split('\n').slice(-300).join('\n'));
+    }
+    fs.appendFileSync(file, `[${new Date().toISOString()}] ${action} ${detail}\n`);
+  } catch { /* 记不上日志也不能影响提醒本身 */ }
+}
+
+// 卡片收起的唯一出口。hide 之后不允许任何残留的异步任务再把窗口显示出来。
+function hideOverlay(reason) {
+  clearOverlayTimers();
+  stopOverlayKeeper();
+  if (overlayWin && !overlayWin.isDestroyed()) overlayWin.hide();
+  logOverlay('hide', `${reason} shown=${overlayShownAt ? Date.now() - overlayShownAt : 0}ms`);
+  overlayShownAt = 0;
+}
+
+// 最后防线放在主进程：它持有窗口对象，不依赖渲染进程的 setTimeout 和 IPC。
+// 渲染进程自己会在 30s(姿势)/20s(久坐) 收卡，正常情况下这个 35s 永远轮不上。
+const OVERLAY_HARD_LIMIT_MS = 35 * 1000;
 
 // 只顶一次不够：mstsc 会在自己激活的瞬间插到上面。卡片显示期间定期抬高一次，
 // SetWindowPos 的开销可以忽略，而 1 秒的延迟就足以让提醒被整个错过。
@@ -455,15 +497,21 @@ ipcMain.handle('baseline:clear', () => {
 
 ipcMain.on('overlay:show', (_e, payload) => {
   if (!overlayWin) return;
+  // 上一张卡片或预览遗留的异步任务一律作废，尤其是那个"1.8 秒后收起预览"
+  clearOverlayTimers();
   placeOverlay();
   // 透明度由主进程盖章，渲染进程传什么都不算数，避免两处各存一份设置
   overlayWin.webContents.send('overlay:content', { ...payload, opacity: settings.overlayOpacity });
   overlayWin.showInactive();
+  overlayShownAt = Date.now();
+  logOverlay('show', String(payload?.title || ''));
   // 依次抬高几次：mstsc 之类的全屏窗口会在自己激活后插到 topmost 前面，
   // 一次 SetWindowPos 顶不住，等它稳定后再补两下。
   raiseOverlay();
-  setTimeout(raiseOverlay, 150);
-  setTimeout(raiseOverlay, 400);
+  scheduleOverlay(raiseOverlay, 150);
+  scheduleOverlay(raiseOverlay, 400);
+  // 渲染进程失联（定时器被节流、IPC 丢失、判定态卡死）时，主进程到点也要把屏幕清空
+  scheduleOverlay(() => hideOverlay('main-timeout'), OVERLAY_HARD_LIMIT_MS);
   startOverlayKeeper();
 });
 
@@ -477,6 +525,7 @@ function clampOpacity(v, fallback) {
 // 让用户在真实位置"看"到卡片，比从下拉框里选"显示器 1/2"可靠得多
 ipcMain.on('overlay:preview', (_e, opacity) => {
   if (!overlayWin) return;
+  clearOverlayTimers();
   const d = targetDisplay();
   placeOverlay();
   overlayWin.webContents.send('overlay:content', {
@@ -487,13 +536,12 @@ ipcMain.on('overlay:preview', (_e, opacity) => {
     opacity: clampOpacity(opacity, settings.overlayOpacity),
   });
   overlayWin.showInactive();
+  overlayShownAt = Date.now();
+  logOverlay('preview', '');
   raiseOverlay();
-  setTimeout(raiseOverlay, 150);
+  scheduleOverlay(raiseOverlay, 150);
+  scheduleOverlay(() => hideOverlay('preview-timeout'), 1800);
   startOverlayKeeper();
-  setTimeout(() => {
-    stopOverlayKeeper();
-    if (overlayWin) overlayWin.hide();
-  }, 1800);
 });
 
 // 只给结构化数据，显示名由渲染进程按当前语言拼——「显示器 1」不该写死在这里
@@ -534,8 +582,7 @@ ipcMain.handle('shell:open', (_e, url) => {
 });
 
 ipcMain.on('overlay:hide', () => {
-  stopOverlayKeeper();
-  if (overlayWin) overlayWin.hide();
+  hideOverlay('renderer');
 });
 
 if (!app.requestSingleInstanceLock()) {
