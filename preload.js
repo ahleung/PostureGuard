@@ -15,4 +15,5 @@ contextBridge.exposeInMainWorld('api', {
   onHotkey: (cb) => ipcRenderer.on('hotkey:pause', () => cb()),
   getAppInfo: () => ipcRenderer.invoke('app:info'),
   openExternal: (url) => ipcRenderer.invoke('shell:open', url),
+  logSitEvent: (e) => ipcRenderer.send('sit:event', e),
 });

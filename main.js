@@ -298,16 +298,20 @@ function clearOverlayTimers() {
   overlayTimers = [];
 }
 
-// 卡片显隐是唯一"用户看得见、事后却查不到"的事件。界面里那 4 行日志退出就没了，
-// 落盘一行才能回答"到底弹没弹、什么时候收的"。
-function logOverlay(action, detail = '') {
+// 显隐/久坐这类"用户看得见、事后却查不到"的事件才落盘：界面那 4 行日志退出就没了。
+// 超过 200KB 只保留末尾 300 行，免得长期挂着把用户目录撑大。
+function appendEvent(name, action, detail = '') {
   try {
-    const file = path.join(app.getPath('userData'), 'overlay-events.log');
+    const file = path.join(app.getPath('userData'), name);
     if (fs.existsSync(file) && fs.statSync(file).size > 200 * 1024) {
       fs.writeFileSync(file, fs.readFileSync(file, 'utf8').split('\n').slice(-300).join('\n'));
     }
     fs.appendFileSync(file, `[${new Date().toISOString()}] ${action} ${detail}\n`);
   } catch { /* 记不上日志也不能影响提醒本身 */ }
+}
+
+function logOverlay(action, detail = '') {
+  appendEvent('overlay-events.log', action, detail);
 }
 
 // 卡片收起的唯一出口。hide 之后不允许任何残留的异步任务再把窗口显示出来。
@@ -583,6 +587,19 @@ ipcMain.handle('shell:open', (_e, url) => {
 
 ipcMain.on('overlay:hide', () => {
   hideOverlay('renderer');
+});
+
+// 渲染进程只在离座/归来/清零三个切换点发一次，主进程统一落盘到 sit-events.log。
+// 查「离开回来为什么没重置」看这个文件：没有 leave 行 = 离座没被识别；
+// 有 leave 但 awayMs 不到门槛 = 按设计不清零；有 reset 行 = 确实归零过。
+ipcMain.on('sit:event', (_e, e) => {
+  if (!e || typeof e !== 'object') return;
+  appendEvent('sit-events.log', String(e.action || 'event'), JSON.stringify({
+    awayMs: e.awayMs ?? null,
+    drop: e.drop ?? null,
+    sitMs: e.sitMs ?? null,
+    reason: String(e.reason || ''),
+  }));
 });
 
 if (!app.requestSingleInstanceLock()) {

@@ -18,10 +18,12 @@ const SEAT_DROP_MIN = -0.3;
 // 连续这么久不在座位，就不再判姿势：作废 badMs、收起卡片。2 秒是"人还在不在"的确认窗口。
 const AWAY_MS = 2000;
 // 离开这么久才算一次真正的休息，久坐计时才清零——和上面那个不是一回事。
-// 这个值不能小：45 分钟的"连续"里只要出现一次 2 秒的检测中断（够东西、低头、转身），
-// 计数就被打回 0，提醒永远攒不满。0.3.9 把两者都设成 2 秒，真机表现就是"45 分钟从没提醒过"。
-// 1 分钟的分界：起身接杯水、走到窗边站一会儿都够 1 分钟，算真休息；坐着伸个懒腰不算。
-const SIT_BREAK_MS = 60 * 1000;
+// 不能太小：45 分钟的"连续"里只要出现一次 2 秒的检测中断（够东西、低头、转身），
+// 计数就被打回 0，提醒永远攒不满。0.3.9 把两者都设成 2 秒，真机就是"45 分钟从没提醒过"。
+// 15 秒分界：低头、被挡一下都在 5 秒内，不会误清；起身倒水/离开座位一般超过 15 秒，
+// 回来就该从 0 起。0.3.10/0.3.11 曾用 60 秒，真机上"出去一趟回来没重置"被当成 bug。
+// 仿真复核：45 分钟里每 8 分钟遮挡 3 秒仍准时弹 1 次（sim.mjs F 场景）。
+const SIT_BREAK_MS = 15 * 1000;
 // 姿势卡片正常靠"坐正 3 秒"收起，但那条路依赖 judge.shown 一直为真。
 // 判定态被外部清掉（离座确认、改机位作废基线、重新标定）后就再也没人产出 release，
 // 卡片会永久停在屏幕上，只能退出程序才消失。给个上限兜底：再怎么样也不会常驻挡屏。
@@ -508,9 +510,10 @@ function loop() {
   const sf = shoulderFrame(lm, aspect);
   const dropNow = judge.base ? (sf.y - judge.base.shY) / Math.max(judge.base.shW, 0.1) : 0;
   if (judge.base && dropNow < SEAT_DROP_MIN) {
-    leaveSeat(now, 'status.leftSeat');
+    leaveSeat(now, 'status.leftSeat', dropNow);
     return;
   }
+  if (awaySince) sitEvent('return', { awayMs: now - awaySince, reason: 'inSeat' });
   awaySince = 0;
 
   const raw = neckAngle(lm, aspect);
@@ -590,8 +593,24 @@ function updateSit(dt) {
   }
 }
 
+// 久坐事件落盘：只在状态切换时记一行，不逐帧刷（4 FPS × 长时间离座会刷屏）。
+// drop 是当帧肩中点相对基线的偏移，真机用它判断 SEAT_DROP_MIN=-0.3 是不是太钝：
+// 日志里根本没有 leave 行，就说明离座压根没被识别，调 SIT_BREAK_MS 也没用。
+function sitEvent(action, fields = {}) {
+  try {
+    window.api.logSitEvent?.({
+      action,
+      awayMs: Math.round(fields.awayMs ?? 0),
+      drop: fields.drop == null ? null : Number(fields.drop.toFixed(3)),
+      sitMs: Math.round(fields.sitMs ?? sitMs),
+      reason: fields.reason || '',
+    });
+  } catch { /* 记不上日志也不能影响判定 */ }
+}
+
 // 离座（人走出画面，或人还在画面里但站起来了）时的统一收尾。
-function leaveSeat(now, statusKey) {
+function leaveSeat(now, statusKey, drop = null) {
+  const starting = !awaySince;
   draw(null);
   setState(statusKey, 'warn');
   // 卡片立刻收起：人都不在座位上了，那张卡片留着只会被当成"还在判我"
@@ -606,6 +625,7 @@ function leaveSeat(now, statusKey) {
   shBuf = [];
   yawBuf = [];
   handleAway(now);
+  if (starting) sitEvent('leave', { drop, reason: statusKey });
   idlePaint(sitMs);
   syncHint(false);
 }
@@ -618,7 +638,10 @@ function handleAway(now) {
   const away = now - awaySince;
   if (away >= AWAY_MS) judge.clearVerdict();
   if (away >= SIT_BREAK_MS) {
-    if (sitMs) log(t('log.sitReset'));
+    if (sitMs) {
+      sitEvent('reset', { awayMs: away, reason: 'sitBreak' });
+      log(t('log.sitReset'));
+    }
     sitMs = 0;
     standFired = false;
   }
